@@ -1,0 +1,130 @@
+
+#include "Wire.h"
+#include "I2CDEV.h"
+#include "MPU6050.h"
+#include "Servo.h"
+int dt= 0.01;
+MPU6050 mpu;
+int16_t ax, ay, az; //Accelerometer Daten 
+int16_t gx, gy, gz; //Gyro Daten
+int correctureX;
+int correctureY;
+int correctureZ;
+Servo ESC0,ESC1,ESC2,ESC3;
+int val; //gemappter Wert des Winkels
+int prevVal; //vorraus gegangener gemappter Winkelwert
+int val1;
+int prevVal1;
+int val2;
+int prevVal2;
+int MIN = 30;
+int MAX = 179;
+int throttle = 0;
+int tpin = 3;
+int corr = val-prevVal;
+int corr1 = val1-prevVal1;
+int corr2 = val2-prevVal2;
+
+
+void setup()
+{
+ 
+  Wire.begin();
+  Serial.begin(9600);
+  Serial.println("Initialize MPU");
+  mpu.initialize();
+  Serial.println(mpu.testConnection()?"Connected":"Connection failed");
+  ESC0.attach(3);
+  ESC1.attach(5);
+  ESC2.attach(6);
+  ESC3.attach(9);
+ 
+  Serial.println("Programm gestartet");
+   
+   
+      Serial.println("Initialisierung & Kalibrierung der ESC`s wird gestartet");
+      delay(1000);
+      Serial.println("Spannungsquelle mit den ESC`s verbinden in:");
+      Serial.println("5");
+      delay(1000);
+      Serial.println("4");
+      delay(1000);
+      Serial.println("3");
+      delay(1000);
+      Serial.println("2");
+      delay(1000);
+      Serial.println("1");
+      delay(1000);
+      Serial.println("Spannungsquelle anschließen, Initialisierung wird eingeleitet");
+      delay(2000);
+       ESC0.write(MAX);
+       ESC1.write(MAX);
+       ESC2.write(MAX);
+       ESC3.write(MAX);
+      delay(1800);
+      ESC0.write(MIN);
+       ESC1.write(MIN);
+       ESC2.write(MIN);
+       ESC3.write(MIN);
+      delay(2000);
+      Serial.println("Initialisierung & Kalibrierung abgeschlossen");
+}
+
+
+void loop()
+{
+  delay(2000);
+  mpu.getMotion6(&ax,&ay,&az,&gx,&gy,&gz); //Einlesen der MPU-WERTE
+  correctureX = 0.98*(correctureX+gx*dt)+0.02*(ax); // KomplementÃ¤rfilter: Winkel = 0.98*(Winkel+Gyrodaten*Abtastrate)+0.02*(Accelerometerdaten)
+  correctureY = 0.98*(correctureY+gx*dt)+0.02*(ay);
+  correctureZ = 0.98*(correctureZ+gx*dt)+0.02*(az);
+  
+  
+  val  = map(correctureX, -32768,32767, 30, 179);//Werte von 360 Grad auf 180 Grad (servo) anpassen
+  val1 = map(correctureY, -32768,32767, 30, 179);
+  val2 = map(correctureZ, -32768,32767, 30, 179);
+  throttle = map(analogRead(tpin), 0, 1023, 30, 179);
+
+  if(throttle >30)
+  {
+
+  
+  
+      ESC0.write(throttle);
+      ESC1.write(throttle);
+      ESC2.write(throttle);
+      ESC3.write(throttle);
+      Serial.println(throttle);
+  }
+  
+  if(corr > 5)
+  {
+    ESC0.write(val); //korrigierten Wert an den ESC Ã¼bermitteln
+    ESC2.write(val);
+    prevVal = val;
+  }
+  
+  if(corr1 > 5)
+  {
+    ESC1.write(val1);
+    ESC3.write(val1);
+  }
+  
+  if(corr2 > 5)
+  {
+    ESC0.write(val2);
+    ESC1.write(val2);
+    ESC2.write(val2);
+    ESC3.write(val2);
+    prevVal2 = val2;
+  }
+  Serial.println("corr"); //Kontrollausgabe
+  Serial.println(corr);
+  Serial.println("corr1");
+  Serial.println(corr1);
+  Serial.println("corr2");
+  Serial.println(corr2);
+  Serial.println("throttle");
+  Serial.println(throttle);
+  
+}
